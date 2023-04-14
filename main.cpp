@@ -105,6 +105,8 @@ int main()
     soduko->testValuesInItems();
     soduko->printfunction();
     soduko->Solution();
+
+    free(soduko);
     
 
     return 0;

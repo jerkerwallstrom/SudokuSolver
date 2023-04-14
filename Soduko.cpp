@@ -32,6 +32,11 @@ class Soduko {
 	  }
 	}
   }
+
+  public :~Soduko() {
+	//Free list<BoxItem>
+	items.clear();
+  }
   
   public :void Setup(int x, int y, int aValue) {
     //for (BoxItem item : items) {
@@ -61,14 +66,23 @@ class Soduko {
   }
   
   public :void setupRow(int y, string numbers) {
-    int x = 1;  
-	if (numbers.length() != 9) {
-	  printf("Error length input string");	
+    int x = 1;
+	string szNumbers = numbers;
+	if (szNumbers.length() != 9) {
+	  if (szNumbers.length() > 9) {
+        szNumbers = szNumbers.substr(0, 9);
+	  } else {
+		for (int i = szNumbers.length(); i < 9; i++) {
+		  szNumbers = szNumbers + "0";	
+		}
+	    printf("Error length input string");	
+	  }
 	}
-    for (char & c : numbers) {
+    for (char & c : szNumbers) {
       int value = c - '0';  
-	  if (value > 9) {
-		printf("Error value in setup row");
+	  if ((value > 9) || (value < 0)) {
+		printf("Error value in setup row (\'%c\')", c);
+		value = 0;
 	  }  
       Setup(x, y, value); 
       x++;
@@ -77,13 +91,6 @@ class Soduko {
   
   public :bool setValueForPos(int x, int y, int aValue) {  
 	//test brytpunkt
-	int iBreak = 0;
-	if ((6 == x) && (4 == y)) {
-      iBreak = 1;
-	} 
-	if ((6 == x) && (y == 8)) {
-      iBreak = 1;      
-	} 
     int pos = magicTable[x*10+y];
 	//Item item = items[pos];
     list<BoxItem>::iterator pItem = items.begin();
@@ -95,6 +102,16 @@ class Soduko {
 	  pItem->setValue(aValue);
 	  return true;
 	}
+  }
+
+  public :void resetValueForPos(int x, int y) {  
+	//test brytpunkt
+    int pos = magicTable[x*10+y];
+	//Item item = items[pos];
+    list<BoxItem>::iterator pItem = items.begin();
+    advance(pItem, pos);
+    //BoxItem item = *pItem;
+    pItem->setValue(0);
   }
 
   public :BoxItem GetBoxItemAtPos(int x, int y){
@@ -273,6 +290,37 @@ class Soduko {
 		}
 	}
 	return !found;
+
+  }
+
+  private :bool checkIfPosCanHaveValue(int x, int y, int value){
+	//Check Row
+	list<int> row = GetValuesForRow(y, -1, -1);
+	for (int i : row){
+	  if (value == i) {
+		return false;
+	  }
+	}
+
+	//Check Col
+	list<int> col = GetValuesForCol(x, -1, -1);
+	for (int i : col){
+	  if (value == i) {
+		return false;
+	  }
+	}
+
+	//Check Square
+	SquareInfo squareInfo;
+	int sqr = squareInfo.GetRutaForPos(x, y);
+	list<int> sqrValues = GetValuesForSquare(sqr);
+	for (int i : sqrValues){
+	  if (value == i) {
+		return false;
+	  }
+	}
+
+	return true;
 
   }
 
@@ -1068,6 +1116,324 @@ class Soduko {
     return res;
   }
 
+  private :bool CheckIfRowIsFilled(int y) {
+    for (int x = 1; x <= 9; x++) {
+      if (!checkIfPosFilled(x, y)) {
+		return false;
+	  }
+	}
+	return true;
+  }
+
+  private :bool CheckIfColIsFilled(int x) {
+    for (int y = 1; y <= 9; y++) {
+      if (!checkIfPosFilled(x, y)) {
+		return false;
+	  }
+	}
+	return true;
+  }
+
+  private :bool CheckIfSqrIsFilled(int sqr) {
+    SquareInfo squareInfo;
+    mySquare mySqr = squareInfo.GetPosForSquare(sqr);
+    for (int x = mySqr.xMin; x <= mySqr.xMax; x++) {
+      for (int y = mySqr.yMin; y <= mySqr.yMax; y++) {
+        if (!checkIfPosFilled(x, y)) {
+	  	  return false;
+	    }  
+	  }
+	}
+	return true;
+  }
+
+  private :bool specialCheckIfOnlyOneLeftinSqrRow(int sqr, int &xOne, int &yOne) {
+    SquareInfo squareInfo;
+    mySquare mySqr = squareInfo.GetPosForSquare(sqr);
+    for (int y = mySqr.yMin; y <= mySqr.yMax; y++) {
+	  int cnt = 0;	
+      for (int x = mySqr.xMin; x <= mySqr.xMax; x++) {
+        if (checkIfPosFilled(x, y)) {
+          cnt++;
+	    } else {
+			xOne = x;
+			yOne = y;
+		}
+	  }
+	  if (2 == cnt) {
+		return true;
+	  }
+	}
+	return false;
+  }
+
+  private :bool specialCheckIfOnlyOneLeftinSqrCol(int sqr, int &xOne, int &yOne) {
+    SquareInfo squareInfo;
+    mySquare mySqr = squareInfo.GetPosForSquare(sqr);
+    for (int x = mySqr.xMin; x <= mySqr.xMax; x++) {
+	  int cnt = 0;	
+      for (int y = mySqr.yMin; y <= mySqr.yMax; y++) {
+        if (checkIfPosFilled(x, y)) {
+          cnt++;
+	    } else {
+			xOne = x;
+			yOne = y;
+		}
+	  }
+	  if (2 == cnt) {
+		return true;
+	  }
+	}
+	return false;
+  }
+
+  private :int getMissingSquare(int sqr, int sqr1, int sqr2, int sqrFilled, int sqrOne) {
+	int sqrRes = 0;
+	if (!((sqr2 == sqrFilled) || (sqr2 == sqrOne))) {
+		sqrRes = sqr2;
+	}
+	if (!((sqr1 == sqrFilled) || (sqr1 == sqrOne))) {
+		sqrRes = sqr1;
+	}
+	if (!((sqr == sqrFilled) || (sqr == sqrOne))) {
+		sqrRes = sqr;
+	}
+	return sqrRes;
+  }
+
+  private :bool analyzeExtendedSquareCanNotHaveRows() {
+	for (int sqr = 1; sqr <=7; sqr = sqr + 3){
+	  //Get squares for "squares in row"
+      SquareInfo squareInfo;
+	  int sqr1; int sqr2;
+	  squareInfo.getSquaresInRow(sqr, sqr1, sqr2);
+	  mySquare mySqr = squareInfo.GetPosForSquare(sqr);
+	  mySquare mySqr1 = squareInfo.GetPosForSquare(sqr1);
+	  mySquare mySqr2 = squareInfo.GetPosForSquare(sqr2);
+
+	  //Check if one row is filled
+	  int yFilled = 0;
+	  int sqrFilled = 0;
+	  int cnt = 0;
+	  for (int y = mySqr.yMin; y <= mySqr.yMax; y++) {
+		if (CheckIfRowIsFilled(y)) {
+		  yFilled = y;
+		  cnt ++;
+		}
+	  }
+	  if (cnt != 1) {
+		continue;
+	  }
+	  //Check if one sqr is filled
+	  cnt = 0;
+	  if (CheckIfSqrIsFilled(sqr)) {
+	    sqrFilled = sqr;
+	    cnt++;
+	  }
+	  if (CheckIfSqrIsFilled(sqr1)) {
+	    sqrFilled = sqr1;
+	    cnt++;
+	  }
+	  if (CheckIfSqrIsFilled(sqr2)) {
+	    sqrFilled = sqr2;
+	    cnt++;
+	  }
+	  if (cnt != 1) {
+		continue;
+	  }
+
+	  //Check if only one left in a row in a sqr
+	  int xOne; int yOne; int sqrOne; list<int> canhaveValues;
+	  cnt = 0;
+	  if (sqr != sqrFilled) {
+	    if (specialCheckIfOnlyOneLeftinSqrRow(sqr, xOne, yOne)) {
+		  sqrOne = sqr;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if ((0 == cnt) && (sqr1 != sqrFilled)) {
+	    if (specialCheckIfOnlyOneLeftinSqrRow(sqr1, xOne, yOne)) {
+		  sqrOne = sqr1;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if ((0 == cnt) && (sqr2 != sqrFilled)) {
+	    if (specialCheckIfOnlyOneLeftinSqrRow(sqr2, xOne, yOne)) {
+		  sqrOne = sqr2;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if (1 == cnt) {
+		if (2 != canhaveValues.size()) {
+		  continue;
+		}
+		// Get row which is not filled and the one withoute xOne!!
+		int ySearch = 0;
+  	    for (int y = mySqr.yMin; y <= mySqr.yMax; y++) {
+		  if ((y != yFilled) && (y != yOne)) {
+			ySearch = y;
+		  }
+		}
+		//Get square which not have pos xOne, yOne anf are not filled!
+		int sqrSearch = getMissingSquare(sqr, sqr1, sqr2, sqrFilled, sqrOne);
+		mySquare mySqrSearch = squareInfo.GetPosForSquare(sqrSearch);
+		list<int> canhaveSrh;
+		int tmpCnt = 0;
+		for (int x = mySqrSearch.xMin; x <= mySqrSearch.xMax; x++) {
+		  BoxItem item = GetBoxItemAtPos(x, ySearch);
+		  canhaveSrh = item.getCanHave();	
+		  if (2 == canhaveSrh.size()) {
+		    tmpCnt++;
+		  }
+		}
+		if (1 == tmpCnt) {
+		  int theValue = 0;
+		  int lCnt = 0;
+		  for (int value : canhaveValues) {
+            for (int serchValue : canhaveSrh) {
+			  if (value == serchValue) {
+				lCnt++;
+				theValue = value;
+			  }
+			}
+		  }
+		  if (1 == lCnt) {
+			setValueForPos(xOne, yOne, theValue);
+			return true;
+		  }
+		}
+	  }
+
+	}
+	return false;
+  }
+
+  private :bool analyzeExtendedSquareCanNotHavecols() {
+	for (int sqr = 1; sqr <=3; sqr++){
+	  //Get squares for "squares in row"
+      SquareInfo squareInfo;
+	  int sqr1; int sqr2;
+	  squareInfo.getSquaresInCol(sqr, sqr1, sqr2);
+	  mySquare mySqr = squareInfo.GetPosForSquare(sqr);
+	  mySquare mySqr1 = squareInfo.GetPosForSquare(sqr1);
+	  mySquare mySqr2 = squareInfo.GetPosForSquare(sqr2);
+
+	  //Check if one row is filled
+	  int xFilled = 0;
+	  int sqrFilled = 0;
+	  int cnt = 0;
+	  for (int x = mySqr.xMin; x <= mySqr.xMax; x++) {
+		if (CheckIfColIsFilled(x)) {
+		  xFilled = x;
+		  cnt ++;
+		}
+	  }
+	  if (cnt != 1) {
+		continue;
+	  }
+	  //Check if one sqr is filled
+	  cnt = 0;
+	  if (CheckIfSqrIsFilled(sqr)) {
+	    sqrFilled = sqr;
+	    cnt++;
+	  }
+	  if (CheckIfSqrIsFilled(sqr1)) {
+	    sqrFilled = sqr1;
+	    cnt++;
+	  }
+	  if (CheckIfSqrIsFilled(sqr2)) {
+	    sqrFilled = sqr2;
+	    cnt++;
+	  }
+	  if (cnt != 1) {
+		continue;
+	  }
+
+	  //Check if only one left in a row in a sqr
+	  int xOne; int yOne; int sqrOne; list<int> canhaveValues;
+	  cnt = 0;
+	  if (sqr != sqrFilled) {
+	    if (specialCheckIfOnlyOneLeftinSqrCol(sqr, xOne, yOne)) {
+		  sqrOne = sqr;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if ((0 == cnt) && (sqr1 != sqrFilled)) {
+	    if (specialCheckIfOnlyOneLeftinSqrCol(sqr1, xOne, yOne)) {
+		  sqrOne = sqr1;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if ((0 == cnt) && (sqr2 != sqrFilled)) {
+	    if (specialCheckIfOnlyOneLeftinSqrCol(sqr2, xOne, yOne)) {
+		  sqrOne = sqr2;
+		  BoxItem item = GetBoxItemAtPos(xOne, yOne);
+		  canhaveValues = item.getCanHave();
+		  cnt++;
+	    }
+	  }
+	  if (1 == cnt) {
+		if (2 != canhaveValues.size()) {
+		  continue;
+		}
+		// Get row which is not filled and the one withoute xOne!!
+		int xSearch = 0;
+  	    for (int x = mySqr.xMin; x <= mySqr.yMax; x++) {
+		  if ((x != xFilled) && (x != xOne)) {
+			xSearch = x;
+		  }
+		}
+		//Get square which not have pos xOne, yOne anf are not filled!
+		int sqrSearch = getMissingSquare(sqr, sqr1, sqr2, sqrFilled, sqrOne);
+		mySquare mySqrSearch = squareInfo.GetPosForSquare(sqrSearch);
+		list<int> canhaveSrh;
+		int tmpCnt = 0;
+		for (int y = mySqrSearch.yMin; y <= mySqrSearch.yMax; y++) {
+		  BoxItem item = GetBoxItemAtPos(xSearch, y);
+		  canhaveSrh = item.getCanHave();	
+		  if (2 == canhaveSrh.size()) {
+		    tmpCnt++;
+		  }
+		}
+		if (1 == tmpCnt) {
+		  int theValue = 0;
+		  int lCnt = 0;
+		  for (int value : canhaveValues) {
+            for (int serchValue : canhaveSrh) {
+			  if (value == serchValue) {
+				lCnt++;
+				theValue = value;
+			  }
+			}
+		  }
+		  if (1 == lCnt) {
+			setValueForPos(xOne, yOne, theValue);
+			return true;
+		  }
+		}
+	  }
+
+	}
+	return false;
+  }
+
+  public :bool analyzeExtendedSquareCanNotHave(){
+	if (!analyzeExtendedSquareCanNotHaveRows()) {
+	  return analyzeExtendedSquareCanNotHavecols();
+	}
+	return true;
+  }
+
   private :bool detectSameCanHaveRow(int y, int xMin, int xMax) {
 	//Count get filled
 	int cntFilled = 0;
@@ -1497,9 +1863,85 @@ class Soduko {
 	  pos++;	
 	}
   }
-  
+
+  private :bool findEmptyCell(int &x, int &y) {
+	for (x = 1; x <= 9; x++) {
+	  for (y = 1; y <= 9; y++) {
+		if (!checkIfPosFilled(x,  y)) {
+          return true;
+		}
+	  }
+	}
+    return false;
+  }
+
+  private :bool solveSudoku() //int grid[SIZE][SIZE]) 
+  { 
+    int x, y; 
+    if (!findEmptyCell(x, y)) 
+    { 
+      printfunction(); // printGrid(grid); 
+	  return true; 
+	  // Grid is solved 
+    } 
+    for (int num = 1; num <= 9; num++) 
+    { 
+      if (checkIfPosCanHaveValue(x, y, num)) 
+	  { 
+	    setValueForPos(x, y, num);
+	    if (solveSudoku()) 
+	    { 
+	      printfunction(); //printGrid(grid); 
+		  return true; 
+	    } 
+	    resetValueForPos(x, y);//grid[row][col] = 0; // backtrack 
+	  } 
+    } 
+    return false; // No solution exists
+  }
+
+  private :bool tryTrialAndError() {
+	return solveSudoku();
+  }
+
+  private :bool tryTrialAndErrorDoesNotWork() {
+    printfunction();
+    string solutionBeforeCheat = save(false);
+	for (int value = 1; value <= 9; value++) {
+	  bool first = true;	
+	  for (int x = 1; x <= 9; x++) {		
+		for (int y = 1; y <= 9; y++) {
+    	  if (!checkIfPosFilled(x, y)) {
+			int start = 1;
+			if (first) {
+			  start = value;
+			  first = false;	
+			}
+     	    for (int nvalue = start; nvalue <= 9; nvalue++) {
+     	      if (checkIfPosCanHaveValue(x, y, nvalue)) {
+				setValueForPos(x, y, nvalue);
+				continue;
+			  }
+		    }
+		  }
+		}
+		printfunction();
+	  }
+	  //Check if solved
+ 	  bool isFilled = CheckIfFilled();
+	  bool isValid = validate();
+      if (isFilled && isValid) {
+		return true;
+	  }
+	  //else
+	  restore(solutionBeforeCheat);
+	}
+    return false;
+  }
+
   public :void Solution() {
 	string solutionBeforeCheat;
+	string solutionBeforeCheat2;
 	bool cheating = false; 
 	bool cheatOk = false;
 	bool tryFirst = true;
@@ -1524,47 +1966,51 @@ class Soduko {
 	  }
 	  analyzeExtendedPlus();
 
+	  analyzeExtendedSquareCanNotHave();
+
 	  isFilled = CheckIfFilled();
 	  isValid = validate();
       printfunction();
 	  if ((equalToLast())) {
-		if (cheating) {
-		  tryFirst = !tryFirst;
-		  restore(solutionBeforeCheat);
-		}
-		printf("equal\n");
-		if (!isValid) {
-		  if (!cheating) {
-		    solutionBeforeCheat = save(false);
-		  }           
-		  cheating = setCheatingValue(cheatValue, xCheat, yCheat, cheatSqr, tryFirst, notSqr);
+		if (!tryTrialAndError()) {
 		  if (cheating) {
-			setValueForPos(xCheat, yCheat, cheatValue);
-			if (!tryFirst) {
-			  notSqr = cheatSqr;
-   		      solutionBeforeCheat = save(false);
-			}
+		    tryFirst = !tryFirst;
+		    restore(solutionBeforeCheat);
 		  }
-		  printfunction();
-		}
-		if (!cheating) {
-		  //Set a cheating value
-		  int value = 0; int x = 0; int y = 0;
-          cout << "Please enter an integer value:  (Zero = NOT!!)";
-          cin >> value;
-		  if ((value >= 1) && (value <= 9)) {
-            cout << "For row: ";
-            cin >> y;
-            cout << "For col: ";
-            cin >> x;
-   		    if ((x >= 1) && (x <= 9)) {
-			  if ((y >= 1) && (y <= 9)) {
-				setValueForPos(x, y, value);
-				zeroCount = 0;
-			  } 
+		  printf("equal\n");
+		  if (!isValid) {
+		    if (!cheating) {
+		      solutionBeforeCheat = save(false);
+		    }           
+		    cheating = setCheatingValue(cheatValue, xCheat, yCheat, cheatSqr, tryFirst, notSqr);
+		    if (cheating) {
+			  setValueForPos(xCheat, yCheat, cheatValue);
+			  if (!tryFirst) {
+			    notSqr = cheatSqr;
+   		        solutionBeforeCheat2 = save(false);
+			  }
 		    }
-		  } else {
-		    zeroCount++;
+		    printfunction();
+		  }
+		  if (!cheating) {
+		    //Set a cheating value
+		    int value = 0; int x = 0; int y = 0;
+            cout << "Please enter an integer value:  (Zero = NOT!!)";
+            cin >> value;
+		    if ((value >= 1) && (value <= 9)) {
+              cout << "For row: ";
+              cin >> y;
+              cout << "For col: ";
+              cin >> x;
+   		      if ((x >= 1) && (x <= 9)) {
+			    if ((y >= 1) && (y <= 9)) {
+				  setValueForPos(x, y, value);
+				  zeroCount = 0;
+			    } 
+		      }
+		    } else {
+		      zeroCount++;
+		    }
 		  }
 		}
 	  }
@@ -1577,9 +2023,11 @@ class Soduko {
 	  }
 
 	} 
-	string szExit = "";
-    cout << "Please press enter key to exit!";
+	string szExit = "Y";
+    //cout << "Please press enter key to exit!";
+	cout << "Ary you happy with the solution [Y or N]?";
     cin >> szExit;
+	return;
   }
 
 };

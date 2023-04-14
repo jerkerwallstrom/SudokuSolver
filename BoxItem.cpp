@@ -29,20 +29,14 @@ class BoxItem {
 	 
   }
   
+  public :~BoxItem() {
+	//Free
+  }
   
   public :int getX() { return xPos; };
   public :int getY() { return yPos; };
   
   public :void setValue(int aValue) {
-	if ((2==xPos) && (8==yPos)) {
-		int ibreak = 1;
-	}
-	if ((4==xPos) && (8==yPos)) {
-		int ibreak = 1;
-	}
-	if ((6==xPos) && (8==yPos)) {
-		int ibreak = 1;
-	}
     value = aValue;
 	filled = aValue != 0;
   }
