@@ -1901,6 +1901,7 @@ class Soduko {
   }
 
   private :bool tryTrialAndError() {
+	cout << "Start ChatGPT solution\n";
 	return solveSudoku();
   }
 
@@ -1972,7 +1973,9 @@ class Soduko {
 	  isValid = validate();
       printfunction();
 	  if ((equalToLast())) {
-		if (!tryTrialAndError()) {
+		if (tryTrialAndError()) {
+     	  isValid = true;
+		} else {
 		  if (cheating) {
 		    tryFirst = !tryFirst;
 		    restore(solutionBeforeCheat);
